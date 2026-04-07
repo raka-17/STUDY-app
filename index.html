@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<meta name="theme-color" content="#08090e"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CSE 2027"/>
+<meta name="description" content="Offline UPSC Study Planner — sessions, streaks, analytics"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icons/favicon.png"/>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<title>CSE 2027 — Study Planner</title>
+<style>
+/*── RESET ──*/
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#08090e;--bg2:#0f1117;--bg3:#161820;--bg4:#1e2030;
+  --border:#1e2235;--border2:#2a2d45;
+  --purple:#6366f1;--purple2:#818cf8;--purple3:#a5b4fc;
+  --gold:#f59e0b;--gold2:#fbbf24;
+  --green:#22c55e;--green2:#4ade80;
+  --red:#ef4444;--red2:#f87171;
+  --blue:#38bdf8;--teal:#2dd4bf;
+  --orange:#f97316;--pink:#ec4899;
+  --txt:#e8eaf0;--txt2:#9ca3af;--txt3:#4b5563;
+  --radius:13px;--radius-sm:9px;
+  --shadow:0 4px 20px rgba(0,0,0,.4);
+}
+html{height:100%;min-height:100%}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);font-size:13px;min-height:100vh;height:100%}
+button,input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/*── SPLASH ──*/
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s,transform .5s;
+  /* Safety: auto-dismiss after 5s even if JS fails */
+  animation:splashAutoDismiss 0.01s 5s forwards}
+@keyframes splashAutoDismiss{to{opacity:0;pointer-events:none;display:none}}
+#splash.hide{opacity:0;transform:scale(1.05);pointer-events:none}
+.splash-icon{width:96px;height:96px;border-radius:24px;background:linear-gradient(135deg,#1a1060,#0d0f2e);border:1px solid var(--purple);display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 0 60px rgba(99,102,241,.3);margin-bottom:20px;animation:pulse 1.5s ease infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 40px rgba(99,102,241,.2)}50%{box-shadow:0 0 80px rgba(99,102,241,.5)}}
+.splash-title{font-size:28px;font-weight:900;color:var(--purple3);letter-spacing:-1px}
+.splash-sub{font-size:12px;color:var(--txt3);margin-top:6px;letter-spacing:.5px}
+.splash-bar-wrap{margin-top:40px;width:160px;height:3px;background:var(--bg4);border-radius:99px;overflow:hidden}
+.splash-bar{height:100%;background:linear-gradient(90deg,var(--purple),var(--purple2));border-radius:99px;width:0;animation:load 2s ease forwards}
+@keyframes load{0%{width:0}100%{width:100%}}
+.splash-dots{display:flex;gap:6px;margin-top:16px}
+.splash-dot{width:5px;height:5px;border-radius:50%;background:var(--border2)}
+.splash-dot:nth-child(1){animation:blink 1.2s .0s infinite}
+.splash-dot:nth-child(2){animation:blink 1.2s .2s infinite}
+.splash-dot:nth-child(3){animation:blink 1.2s .4s infinite}
+@keyframes blink{0%,100%{background:var(--border2)}50%{background:var(--purple2)}}
+
+/*── APP SHELL ──*/
+#app{display:flex;flex-direction:column;min-height:100vh}
+
+/*── HEADER ──*/
+#hdr{background:linear-gradient(135deg,#0d0f1a,#111827);border-bottom:1px solid var(--border);padding:12px 14px 10px;position:sticky;top:0;z-index:100;flex-shrink:0}
+.hdr-row{display:flex;justify-content:space-between;align-items:center}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.menu-btn{background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer;padding:4px;line-height:1;display:block}
+.hdr-title{font-size:17px;font-weight:900;color:var(--purple3);letter-spacing:-.5px}
+.hdr-sub{font-size:9px;color:var(--purple);font-weight:700;letter-spacing:.5px}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.streak-badge{display:flex;align-items:center;gap:4px;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--gold)}
+.notif-btn{background:none;border:none;color:var(--txt2);font-size:18px;cursor:pointer;position:relative;padding:4px}
+.notif-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg);display:none}
+.notif-dot.on{display:block}
+
+/*── MAIN LAYOUT ──*/
+#main{display:flex;flex:1;min-height:0}
+
+/*── SIDEBAR ──*/
+#sidebar{width:260px;background:var(--bg2);border-right:1px solid var(--border);display:none;flex-direction:column;flex-shrink:0;overflow-y:auto;transition:transform .25s;position:fixed;top:0;bottom:0;left:0;z-index:300;transform:translateX(-100%)}
+#sidebar.open{display:flex;transform:translateX(0)}
+.sb-section{padding:8px 10px 4px;font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase}
+.sb-btn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px;border:none;background:transparent;color:var(--txt2);cursor:pointer;font-size:12px;font-weight:600;border-radius:8px;margin:1px 6px;width:calc(100% - 12px);transition:all .15s;text-align:left}
+.sb-btn:hover{background:var(--bg3);color:var(--txt)}
+.sb-btn.on{background:rgba(99,102,241,.15);color:var(--purple2);border-left:2px solid var(--purple)}
+.sb-btn .sb-ic{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.sb-btn .sb-badge{margin-left:auto;background:var(--purple);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px}
+.sb-divider{height:1px;background:var(--border);margin:6px 14px}
+.sb-session-active{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;margin:8px;padding:10px;font-size:11px}
+.sb-timer{font-size:22px;font-weight:900;color:var(--green);font-variant-numeric:tabular-nums;letter-spacing:1px}
+
+/*── CONTENT ──*/
+#content{flex:1;display:flex;flex-direction:column}
+.panel{display:none;padding:13px;flex-direction:column;gap:11px;max-width:780px;margin:0 auto;width:100%;padding-bottom:80px}
+.panel.on{display:flex;animation:panelin .2s ease}
+@keyframes panelin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/*── BOTTOM NAV (mobile) ──*/
+#bnav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#09090f;border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom,0)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;padding:7px 2px 5px;border:none;background:transparent;cursor:pointer;position:relative}
+.nb-ic{font-size:20px;transition:transform .2s}
+.nb.on .nb-ic{transform:translateY(-2px)}
+.nb-lbl{font-size:8px;font-weight:700;color:var(--txt3);margin-top:2px;transition:color .2s}
+.nb.on .nb-lbl{color:var(--purple2)}
+.nb-dot{width:3px;height:3px;border-radius:50%;background:var(--purple);margin:2px auto 0;opacity:0}
+.nb.on .nb-dot{opacity:1}
+
+/*── CARDS ──*/
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px}
+.card-title{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:9px}
+.card-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+
+/*── STATS ROW ──*/
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 7px;text-align:center}
+.stat-v{font-size:22px;font-weight:900;line-height:1}
+.stat-l{font-size:9px;color:var(--txt3);margin-top:3px}
+
+/*── PROGRESS BAR ──*/
+.pbar{height:5px;border-radius:99px;background:var(--bg4);overflow:hidden;margin-top:4px}
+.pbar-fill{height:100%;border-radius:99px;transition:width .6s ease}
+
+/*── FORMS ──*/
+.inp{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:9px 11px;font-size:12px;color:var(--txt);outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--purple)}
+.inp::placeholder{color:var(--txt3)}
+select.inp option{background:var(--bg2)}
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+
+/*── BUTTONS ──*/
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--purple);color:#fff}
+.btn-primary:hover{background:#5254cc}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--txt2)}
+.btn-outline:hover{border-color:var(--purple);color:var(--purple2)}
+.btn-sm{padding:5px 11px;font-size:11px;border-radius:7px}
+.btn-lg{padding:13px 24px;font-size:14px;border-radius:11px}
+.btn-icon{width:36px;height:36px;padding:0;border-radius:8px}
+.btn-full{width:100%}
+
+/*── BADGE / TAG ──*/
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}
+.tag{display:inline-block;padding:2px 6px;border-radius:5px;font-size:9px;font-weight:700;border:1px solid}
+
+/*── TOAST ──*/
+#toast-wrap{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:5000;display:flex;flex-direction:column;gap:6px;pointer-events:none;width:min(340px,90vw)}
+.toast{background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow);animation:toastin .25s ease;pointer-events:auto}
+.toast.out{animation:toastout .25s ease forwards}
+@keyframes toastin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastout{to{opacity:0;transform:translateY(-8px)}}
+
+/*── MODAL ──*/
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.on{display:flex;animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.modal{background:var(--bg2);border-radius:18px 18px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;padding:20px;border:1px solid var(--border)}
+.modal-handle{width:36px;height:3px;background:var(--border2);border-radius:99px;margin:0 auto 16px}
+.modal-title{font-size:15px;font-weight:900;margin-bottom:16px}
+
+/*── SESSIONS ──*/
+.timer-display{font-size:54px;font-weight:900;color:var(--green);font-variant-numeric:tabular-nums;letter-spacing:2px;text-align:center;line-height:1;text-shadow:0 0 40px rgba(34,197,94,.3)}
+.timer-paused{color:var(--gold)}
+.session-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+
+/*── SUBJECTS ──*/
+.subj-card{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);margin-bottom:8px}
+.subj-hdr{width:100%;border:none;padding:12px 14px;cursor:pointer;text-align:left;background:var(--bg2);display:flex;align-items:center;gap:10px;transition:background .15s}
+.subj-hdr:hover{background:var(--bg3)}
+.subj-body{display:none;background:var(--bg)}
+.subj-body.open{display:block}
+.topic-row{display:flex;align-items:flex-start;gap:10px;padding:9px 14px;border-top:1px solid #0f1117}
+.topic-cb{width:18px;height:18px;border-radius:4px;border:2px solid var(--border2);background:transparent;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:12px}
+.topic-cb.done{background:var(--purple);border-color:var(--purple)}
+.topic-name{font-size:11px;line-height:1.5;color:var(--txt2)}
+.topic-name.done{color:var(--txt3);text-decoration:line-through}
+
+/*── HEATMAP ──*/
+#heatmap-canvas{width:100%;display:block;border-radius:8px}
+
+/*── CHARTS ──*/
+.chart-wrap{position:relative;width:100%}
+canvas.chart{width:100%!important;display:block;border-radius:8px}
+
+/*── HABIT ──*/
+.habit-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.habit-row:last-child{border-bottom:none}
+.habit-check{width:28px;height:28px;border-radius:8px;border:2px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;flex-shrink:0}
+.habit-check.done{background:var(--green);border-color:var(--green)}
+
+/*── TODO ──*/
+.todo-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.todo-item:last-child{border-bottom:none}
+.todo-cb{width:20px;height:20px;border-radius:5px;border:2px solid var(--border2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:1px;transition:all .2s}
+.todo-cb.done{background:var(--purple);border-color:var(--purple)}
+.todo-text{flex:1;font-size:12px;line-height:1.5}
+.todo-text.done{text-decoration:line-through;color:var(--txt3)}
+.todo-time{font-size:10px;color:var(--txt3);margin-top:2px}
+
+/*── COLOR DOTS ──*/
+.color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/*── CORNELL ──*/
+.cornell-wrap{display:grid;grid-template-columns:1fr 2fr;grid-template-rows:auto auto;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:12px}
+.cornell-section{padding:12px;border-right:1px solid var(--border)}
+.cornell-section:last-child{border-right:none}
+.cornell-title{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px}
+.cornell-area{min-height:120px;background:transparent;border:none;width:100%;color:var(--txt);font-size:11px;resize:vertical;outline:none;line-height:1.6;font-family:inherit}
+.cornell-summary{grid-column:1/-1;border-top:1px solid var(--border);padding:12px}
+
+/*── ANALYTICS ──*/
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.big-stat{background:linear-gradient(135deg,#0f1035,#1a1060);border:1px solid var(--purple);border-radius:var(--radius);padding:16px;text-align:center}
+.big-num{font-size:42px;font-weight:900;color:var(--purple3);line-height:1;font-variant-numeric:tabular-nums}
+
+/*── STREAK CALENDAR ──*/
+.streak-cal{display:flex;gap:3px;flex-wrap:wrap}
+.streak-cell{width:14px;height:14px;border-radius:3px;background:var(--bg4);flex-shrink:0;cursor:pointer;transition:transform .15s}
+.streak-cell:hover{transform:scale(1.2)}
+.streak-cell.s1{background:#166534}
+.streak-cell.s2{background:#15803d}
+.streak-cell.s3{background:#22c55e}
+.streak-cell.s4{background:#4ade80}
+.streak-cell.today{outline:2px solid var(--gold);outline-offset:1px}
+
+/*── RESPONSIVE ──*/
+@media(max-width:500px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .analytics-grid{grid-template-columns:1fr}
+  .hdr-title{font-size:15px}
+  .nb-lbl{font-size:7px}
+}
+@media(max-width:380px){
+  .nb-ic{font-size:17px}
+  .nb-lbl{display:none}
+}
+
+/*── SIDEBAR OVERLAY ──*/
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:299}
+
+/*── ANIMATIONS ──*/
+.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.shake{animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/*── OFFLINE BANNER ──*/
+#offline-banner{background:rgba(239,68,68,.1);border-bottom:1px solid rgba(239,68,68,.2);padding:5px 14px;font-size:10px;font-weight:700;color:var(--red);text-align:center;display:none;flex-shrink:0}
+
+/*── SECTION TITLE ──*/
+.section-title{font-size:13px;font-weight:900;color:var(--txt);margin-bottom:2px}
+.section-sub{font-size:10px;color:var(--txt3)}
+
+/*── EMPTY STATE ──*/
+.empty{text-align:center;padding:32px 16px;color:var(--txt3)}
+.empty-ic{font-size:42px;margin-bottom:10px}
+.empty-txt{font-size:12px}
+
+/*── BACKUP ──*/
+.backup-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.backup-icon{font-size:28px}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-icon">📚</div>
+  <div class="splash-title">CSE 2027</div>
+  <div class="splash-sub">UPSC STUDY PLANNER</div>
+  <div class="splash-bar-wrap"><div class="splash-bar"></div></div>
+  <div class="splash-dots"><div class="splash-dot"></div><div class="splash-dot"></div><div class="splash-dot"></div></div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sboverlay" onclick="closeSidebar()"></div>
+
+<!-- APP: NO opacity gating — splash z-index:9999 covers during load -->
+<div id="app">
+
+<!-- OFFLINE BANNER -->
+<div id="offline-banner">📵 You are offline — all data is still available locally</div>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div>
+        <div class="hdr-title">CSE 2027 📚</div>
+        <div class="hdr-sub" id="hdr-sub">UPSC STUDY PLANNER</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="streak-badge" id="streak-badge">🔥 0</div>
+      <button class="notif-btn" onclick="testNotification()" title="Test Notification">🔔<span class="notif-dot" id="notif-dot"></span></button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sb-session-active" id="sb-active" style="display:none">
+    <div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:4px">⏺ SESSION ACTIVE</div>
+    <div class="sb-timer" id="sb-timer">00:00:00</div>
+    <div id="sb-subject" style="font-size:10px;color:var(--txt2);margin-top:3px"></div>
+  </div>
+  <div class="sb-section">STUDY</div>
+  <button class="sb-btn on" data-page="dashboard" onclick="nav('dashboard')"><span class="sb-ic">🏠</span>Dashboard</button>
+  <button class="sb-btn" data-page="sessions" onclick="nav('sessions')"><span class="sb-ic">⏱</span>Sessions</button>
+  <button class="sb-btn" data-page="subjects" onclick="nav('subjects')"><span class="sb-ic">📚</span>Subjects</button>
+  <button class="sb-btn" data-page="today" onclick="nav('today')"><span class="sb-ic">✅</span>Today's Tasks</button>
+  <div class="sb-divider"></div>
+  <div class="sb-section">TRACK</div>
+  <button class="sb-btn" data-page="habits" onclick="nav('habits')"><span class="sb-ic">🔥</span>Habits & Streak</button>
+  <button class="sb-btn" data-page="analytics" onclick="nav('analytics')"><span class="sb-ic">📊</span>Analytics</button>
+  <div class="sb-divider"></div>
+  <div class="sb-section">TOOLS</div>
+  <button class="sb-btn" data-page="notes" onclick="nav('notes')"><span class="sb-ic">📝</span>Cornell Notes</button>
+  <button class="sb-btn" data-page="backup" onclick="nav('backup')"><span class="sb-ic">💾</span>Backup & Export</button>
+  <button class="sb-btn" data-page="settings" onclick="nav('settings')"><span class="sb-ic">⚙️</span>Settings</button>
+</div>
+
+<!-- CONTENT -->
+<div id="content">
+
+<!-- DASHBOARD -->
+<div class="panel on" id="panel-dashboard">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div><div class="section-title" id="dash-greeting">Good Morning! 👋</div><div class="section-sub" id="dash-date"></div></div>
+    <button class="btn btn-primary btn-sm" onclick="nav('sessions')">▶ Start Session</button>
+  </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-v" id="d-today-hrs" style="color:var(--blue)">0h</div><div class="stat-l">Today</div></div>
+    <div class="stat-box"><div class="stat-v" id="d-streak" style="color:var(--gold)">0🔥</div><div class="stat-l">Streak</div></div>
+    <div class="stat-box"><div class="stat-v" id="d-week-hrs" style="color:var(--green)">0h</div><div class="stat-l">This Week</div></div>
+    <div class="stat-box"><div class="stat-v" id="d-sessions" style="color:var(--purple2)">0</div><div class="stat-l">Sessions</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📈 Weekly Progress</div>
+    <div class="chart-wrap"><canvas id="dash-week-chart" class="chart" height="120"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎯 Today's Tasks</div>
+    <div id="dash-todos-list"></div>
+    <button class="btn btn-outline btn-sm btn-full" onclick="nav('today')" style="margin-top:8px">View All Tasks →</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📚 Subject Progress</div>
+    <div id="dash-subjects-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔥 Recent Sessions</div>
+    <div id="dash-sessions-list"></div>
+  </div>
+</div>
+
+<!-- SESSIONS -->
+<div class="panel" id="panel-sessions">
+  <div class="section-title">⏱ Study Sessions</div>
+  <div class="card" style="text-align:center;padding:24px 14px">
+    <div class="timer-display" id="timer-display">00:00:00</div>
+    <div id="timer-subject-label" style="font-size:11px;color:var(--txt2);margin:8px 0 16px">Select a subject to begin</div>
+    <div class="fg" style="text-align:left;margin-bottom:14px">
+      <label>Subject</label>
+      <select class="inp" id="sess-subject">
+        <option value="">— Choose Subject —</option>
+      </select>
+    </div>
+    <div class="fg" style="text-align:left;margin-bottom:16px">
+      <label>Notes (optional)</label>
+      <textarea class="inp" id="sess-notes" rows="2" placeholder="What are you studying?"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-green btn-lg" id="timer-start-btn" onclick="timerStart()">▶ Start</button>
+      <button class="btn btn-gold btn-lg" id="timer-pause-btn" onclick="timerPause()" style="display:none">⏸ Pause</button>
+      <button class="btn btn-red btn-lg" id="timer-stop-btn" onclick="timerStop()" style="display:none">⏹ Stop & Save</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-row"><div class="card-title" style="margin:0">📋 Session Log</div><span id="sessions-count" style="font-size:10px;color:var(--txt3)"></span></div>
+    <div id="sessions-list"><div class="empty"><div class="empty-ic">⏱</div><div class="empty-txt">No sessions yet. Start your first session!</div></div></div>
+  </div>
+</div>
+
+<!-- SUBJECTS -->
+<div class="panel" id="panel-subjects">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="section-title">📚 UPSC Subjects</div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-outline btn-sm" onclick="exportSubjectProgress()">📤 Export</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddSubject()">+ Custom</button>
+    </div>
+  </div>
+  <div class="card" style="padding:10px 14px">
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-outline" onclick="expandAll()">Expand All</button>
+      <button class="btn btn-sm btn-outline" onclick="collapseAll()">Collapse All</button>
+      <button class="btn btn-sm btn-outline" onclick="markAllToday()">✓ Mark Today's Done</button>
+    </div>
+  </div>
+  <div id="subjects-list"></div>
+</div>
+
+<!-- TODAY'S TASKS -->
+<div class="panel" id="panel-today">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div><div class="section-title">✅ Today's Tasks</div><div class="section-sub" id="today-date-label"></div></div>
+    <button class="btn btn-primary btn-sm" onclick="openAddTodo()">+ Add Task</button>
+  </div>
+  <div class="card">
+    <div class="card-row">
+      <div class="card-title" style="margin:0">TASKS — <span id="todo-count">0</span> remaining</div>
+      <button class="btn btn-outline btn-sm" onclick="clearCompletedTodos()">Clear Done</button>
+    </div>
+    <div id="todo-list"><div class="empty"><div class="empty-ic">✅</div><div class="empty-txt">No tasks yet for today</div></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⏰ Reminders</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:11px;color:var(--txt2)">Daily study reminder at:</div>
+      <input type="time" class="inp" id="reminder-time" style="width:110px" value="08:00"/>
+      <button class="btn btn-primary btn-sm" onclick="saveReminder()">Save</button>
+    </div>
+    <div id="reminder-status" style="font-size:10px;color:var(--green);margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- HABITS -->
+<div class="panel" id="panel-habits">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="section-title">🔥 Habits & Streak</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddHabit()">+ Add Habit</button>
+  </div>
+
+  <div class="card" style="background:linear-gradient(135deg,#1a0a00,#2d1500);border-color:#7c3f0a">
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="font-size:56px;line-height:1">🔥</div>
+      <div>
+        <div style="font-size:42px;font-weight:900;color:var(--gold);line-height:1" id="streak-big">0</div>
+        <div style="font-size:11px;color:var(--gold2);margin-top:4px">Day Streak</div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Best: <span id="streak-best">0</span> days</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Streak Calendar (Last 60 Days)</div>
+    <div style="overflow-x:auto;padding-bottom:4px">
+      <canvas id="heatmap-canvas" height="110"></canvas>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--txt3)">Less</span>
+      <div style="display:flex;gap:3px">
+        <div style="width:12px;height:12px;border-radius:2px;background:var(--bg4)"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:#166534"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:#15803d"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:#22c55e"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:#4ade80"></div>
+      </div>
+      <span style="font-size:10px;color:var(--txt3)">More</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-row"><div class="card-title" style="margin:0">TODAY'S HABITS</div><span id="habits-done-count" style="font-size:10px;color:var(--txt3)">0/0 done</span></div>
+    <div id="habits-list"><div class="empty"><div class="empty-ic">🔥</div><div class="empty-txt">Add habits to track daily</div></div></div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="panel" id="panel-analytics">
+  <div class="section-title">📊 Analytics</div>
+
+  <div class="analytics-grid">
+    <div class="big-stat"><div class="big-num" id="an-total-hrs">0</div><div style="font-size:11px;color:var(--purple3);margin-top:5px">Total Hours</div></div>
+    <div class="big-stat"><div class="big-num" id="an-total-sess" style="color:var(--blue)">0</div><div style="font-size:11px;color:var(--blue);margin-top:5px">Sessions</div></div>
+    <div class="big-stat"><div class="big-num" id="an-best-day" style="color:var(--gold)">0h</div><div style="font-size:11px;color:var(--gold2);margin-top:5px">Best Day</div></div>
+    <div class="big-stat"><div class="big-num" id="an-avg-day" style="color:var(--green)">0h</div><div style="font-size:11px;color:var(--green2);margin-top:5px">Daily Avg</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-row"><div class="card-title" style="margin:0">📈 Study Hours — Last 30 Days</div></div>
+    <div class="chart-wrap"><canvas id="an-line-chart" class="chart" height="150"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📚 Subject Breakdown</div>
+    <div class="chart-wrap"><canvas id="an-bar-chart" class="chart" height="180"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Study Heatmap — Last 60 Days</div>
+    <div style="overflow-x:auto">
+      <canvas id="an-heatmap" height="110"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Subject Time Share</div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <canvas id="an-donut-chart" width="160" height="160" style="flex-shrink:0"></canvas>
+      <div id="an-donut-legend" style="flex:1;font-size:11px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTES -->
+<div class="panel" id="panel-notes">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="section-title">📝 Cornell Notes</div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-outline btn-sm" onclick="loadNote()">📂 Load</button>
+      <button class="btn btn-primary btn-sm" onclick="saveNote()">💾 Save</button>
+    </div>
+  </div>
+  <div class="card" style="padding:10px">
+    <div class="fg" style="margin-bottom:8px"><label>Title</label><input class="inp" id="note-title" placeholder="Note title..."/></div>
+    <div class="fg"><label>Subject</label><select class="inp" id="note-subject"><option value="">— Subject —</option></select></div>
+  </div>
+  <div class="cornell-wrap">
+    <div class="cornell-section">
+      <div class="cornell-title">Cue / Key Words</div>
+      <textarea class="cornell-area" id="note-cue" placeholder="Key terms, questions, cues..."></textarea>
+    </div>
+    <div class="cornell-section" style="border-left:1px solid var(--border)">
+      <div class="cornell-title">Notes</div>
+      <textarea class="cornell-area" id="note-main" placeholder="Main notes, facts, concepts..."></textarea>
+    </div>
+    <div class="cornell-summary">
+      <div class="cornell-title">Summary</div>
+      <textarea class="cornell-area" id="note-summary" rows="3" placeholder="Summarize in your own words..."></textarea>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">SAVED NOTES</div>
+    <div id="notes-list"><div class="empty"><div class="empty-ic">📝</div><div class="empty-txt">No notes saved yet</div></div></div>
+  </div>
+</div>
+
+<!-- BACKUP -->
+<div class="panel" id="panel-backup">
+  <div class="section-title">💾 Backup & Data</div>
+  <div class="backup-item">
+    <div class="backup-icon">📤</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:12px">Export All Data (JSON)</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Download all sessions, subjects, habits, todos</div></div>
+    <button class="btn btn-primary btn-sm" onclick="exportData()">Export</button>
+  </div>
+  <div class="backup-item">
+    <div class="backup-icon">📥</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:12px">Import Data (JSON)</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Restore from a previous backup</div></div>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">Import</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"/>
+  </div>
+  <div class="backup-item">
+    <div class="backup-icon">📊</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:12px">Export Sessions CSV</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Spreadsheet-friendly export</div></div>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">CSV</button>
+  </div>
+  <div class="backup-item" style="border-color:rgba(239,68,68,.3)">
+    <div class="backup-icon">🗑️</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:12px;color:var(--red)">Clear All Data</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">This cannot be undone</div></div>
+    <button class="btn btn-red btn-sm" onclick="clearAllData()">Clear</button>
+  </div>
+  <div class="card">
+    <div class="card-title">📦 DATA SUMMARY</div>
+    <div id="backup-summary" style="font-size:12px;color:var(--txt2);line-height:2"></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="panel" id="panel-settings">
+  <div class="section-title">⚙️ Settings</div>
+  <div class="card">
+    <div class="card-title">🔔 NOTIFICATIONS</div>
+    <div class="fg"><label>Daily Reminder Time</label>
+      <div style="display:flex;gap:8px"><input type="time" class="inp" id="set-reminder" value="08:00" style="width:130px"/><button class="btn btn-primary btn-sm" onclick="saveSettings()">Save</button></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px">Enable Notifications</div>
+      <button class="btn btn-sm btn-outline" onclick="requestNotificationPermission()">Enable 🔔</button>
+    </div>
+    <div style="font-size:11px;color:var(--txt3)" id="notif-perm-status"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🎯 STUDY GOALS</div>
+    <div class="fg"><label>Daily Study Target (hours)</label><input type="number" class="inp" id="set-daily-target" min="1" max="16" value="8"/></div>
+    <div class="fg"><label>Weekly Study Target (hours)</label><input type="number" class="inp" id="set-weekly-target" min="1" max="80" value="50"/></div>
+    <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Goals</button>
+  </div>
+  <div class="card">
+    <div class="card-title">ℹ️ APP INFO</div>
+    <div style="font-size:11px;color:var(--txt2);line-height:2">
+      Version: 3.0.0<br>
+      Engine: IndexedDB + Service Worker<br>
+      Mode: 100% Offline First<br>
+      Storage: Permanent (device local)<br>
+      <span style="color:var(--green)">✓ No internet required</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<!-- BOTTOM NAV -->
+<div id="bnav">
+  <button class="nb on" data-page="dashboard" onclick="nav('dashboard')"><div class="nb-ic">🏠</div><div class="nb-lbl">Home</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="sessions" onclick="nav('sessions')"><div class="nb-ic">⏱</div><div class="nb-lbl">Sessions</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="subjects" onclick="nav('subjects')"><div class="nb-ic">📚</div><div class="nb-lbl">Subjects</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="today" onclick="nav('today')"><div class="nb-ic">✅</div><div class="nb-lbl">Tasks</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="habits" onclick="nav('habits')"><div class="nb-ic">🔥</div><div class="nb-lbl">Habits</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="analytics" onclick="nav('analytics')"><div class="nb-ic">📊</div><div class="nb-lbl">Charts</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="notes" onclick="nav('notes')"><div class="nb-ic">📝</div><div class="nb-lbl">Notes</div><div class="nb-dot"></div></button>
+  <button class="nb" data-page="backup" onclick="nav('backup')"><div class="nb-ic">💾</div><div class="nb-lbl">Backup</div><div class="nb-dot"></div></button>
+</div>
+
+</div><!-- /app -->
+
+<!-- TOAST CONTAINER -->
+<div id="toast-wrap"></div>
+
+<!-- ADD TODO MODAL -->
+<div class="modal-bg" id="modal-todo">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ Add Task</div>
+    <div class="fg"><label>Task</label><input class="inp" id="todo-input" placeholder="What do you need to do?"/></div>
+    <div class="fg"><label>Date</label><input type="date" class="inp" id="todo-date"/></div>
+    <div class="fg"><label>Reminder Time (optional)</label><input type="time" class="inp" id="todo-reminder"/></div>
+    <div class="fg"><label>Subject (optional)</label><select class="inp" id="todo-subject"><option value="">— None —</option></select></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-full" onclick="addTodo()">Add Task</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-todo')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD HABIT MODAL -->
+<div class="modal-bg" id="modal-habit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔥 Add Habit</div>
+    <div class="fg"><label>Habit Name</label><input class="inp" id="habit-name" placeholder="e.g. Read 30 minutes"/></div>
+    <div class="fg"><label>Icon</label><input class="inp" id="habit-icon" placeholder="Emoji e.g. 📖" maxlength="4"/></div>
+    <div class="fg"><label>Color</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap" id="habit-colors">
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#6366f1;cursor:pointer;border:2px solid transparent" data-color="#6366f1" onclick="selectHabitColor(this)"></div>
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#22c55e;cursor:pointer;border:2px solid transparent" data-color="#22c55e" onclick="selectHabitColor(this)"></div>
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#f59e0b;cursor:pointer;border:2px solid transparent" data-color="#f59e0b" onclick="selectHabitColor(this)"></div>
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#ef4444;cursor:pointer;border:2px solid transparent" data-color="#ef4444" onclick="selectHabitColor(this)"></div>
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#38bdf8;cursor:pointer;border:2px solid transparent" data-color="#38bdf8" onclick="selectHabitColor(this)"></div>
+        <div class="color-picker" style="width:24px;height:24px;border-radius:50%;background:#ec4899;cursor:pointer;border:2px solid transparent" data-color="#ec4899" onclick="selectHabitColor(this)"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-full" onclick="addHabit()">Add Habit</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-habit')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SUBJECT MODAL -->
+<div class="modal-bg" id="modal-subject">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📚 Add Custom Subject</div>
+    <div class="fg"><label>Subject Name</label><input class="inp" id="new-subj-name" placeholder="e.g. Optional Subject"/></div>
+    <div class="fg"><label>Icon (Emoji)</label><input class="inp" id="new-subj-icon" placeholder="📖" maxlength="4"/></div>
+    <div class="fg"><label>Daily Target (hours)</label><input type="number" class="inp" id="new-subj-target" value="2" min="1" max="12"/></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-full" onclick="addCustomSubject()">Add Subject</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-subject')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   CSE 2027 STUDY APP — FULL OFFLINE ENGINE
+   v3.0 — IndexedDB + Service Worker + Charts
+   ═══════════════════════════════════════════ */
+
+/* ── SUBJECTS DATA ── */
+const SUBJECTS=[
+  {id:"polity",name:"Polity & Constitution",icon:"⚖️",color:"#f59e0b",phase:1,cls:30,
+   topics:["Historical Background & Making of Constitution","Preamble — Keywords & Significance","Union and Its Territory (Art. 1–4)","Citizenship (Art. 5–11)","Fundamental Rights — Overview & Art. 12–13","Right to Equality (Art. 14–18)","Right to Freedom (Art. 19–22)","Right Against Exploitation & Freedom of Religion","Cultural, Educational & Right to Constitutional Remedies","Directive Principles of State Policy (DPSP)","Fundamental Duties (Art. 51A)","Parliament — Structure, Lok Sabha & Rajya Sabha","Parliamentary Procedures — Sessions, Bills, Committees","President — Powers, Functions & Emergency Role","Vice President & Council of Ministers","Prime Minister & Cabinet System","Supreme Court — Structure, Jurisdiction & Powers","High Courts & Subordinate Courts","State Government — Governor, CM & Legislature","Emergency Provisions (Art. 352, 356, 360)","Centre–State Relations","Tribunals & Quasi-Judicial Bodies","Election Commission — Powers & Electoral Process","CAG, Attorney General & Finance Commission","UPSC, SPSCs & Other Constitutional Bodies","Statutory Bodies (NHRC, CIC, CBI, etc.)","Local Self Government — 73rd & 74th Amendment","Schedules 1–12 — Key Contents","Important Constitutional Amendments (42nd–101st)","Anti-Defection Law & Coalition Politics"]},
+  {id:"economics",name:"Economics",icon:"📊",color:"#38bdf8",phase:1,cls:30,
+   topics:["Basic Concepts — Micro vs Macro, Opportunity Cost","National Income — GDP, GNP, NNP, NDP","Measuring National Income — 3 Methods","Money — Functions, Types & Supply Measures (M0–M4)","Commercial Banking — Functions & Credit Creation","RBI — Structure, Functions & Role","Monetary Policy — Repo, Reverse Repo, CRR, SLR","Inflation — Types, Causes & Measures (WPI, CPI)","Fiscal Policy — Revenue, Expenditure & FRBM Act","Union Budget — Key Terms & Components","Types of Deficits — Fiscal, Revenue, Primary, CAD","Taxation — Direct & Indirect, GST Structure","Balance of Payments — Current & Capital Account","Foreign Trade Policy — WTO, Exports, Imports","Foreign Exchange — Exchange Rate, REER","Agriculture — Green Revolution, Issues & Reforms","Agriculture — MSP, APMC, PM Kisan, Reforms","Industry — MSME, Industrial Policy, PLI Scheme","Poverty — Measurement Methods, Programmes","Unemployment — Types, Measurement","Human Development — HDI, MPI, IHDI","Planning — Five-Year Plans to NITI Aayog","Key Economic Surveys & Budget Themes","Financial Inclusion — Jan Dhan, PM Mudra","Capital Markets — SEBI, Stock Exchange","Insurance Sector — IRDAI, Types of Insurance","International Institutions — IMF, World Bank, ADB","Government Flagship Schemes","Current Economic Issues","Environment & Sustainable Development Economics"]},
+  {id:"geography",name:"Geography",icon:"🌍",color:"#22c55e",phase:1,cls:30,
+   topics:["Physical Geography — Interior of Earth","Geomorphology — Landforms & Processes","Rocks & Minerals — Types & Significance","Plate Tectonics — Theory & Indian Context","Earthquakes & Volcanoes","Ocean Currents, Tides & Waves","Climate — Factors, Types (Koppen)","Monsoon — Origin, Mechanism & Variability","Indian Rivers — Major Systems & Issues","Indian Agriculture — Crops, Soils, Regions","Minerals & Energy Resources of India","Industries — Location Factors & Major Industries","Population — Distribution, Density & Growth","Urbanization — Issues & Policies","Transport & Communication Networks","World Geography — Physical Features","Continents & Oceans — Key Features","Economic Geography — Trade & Resources","Natural Disasters — Types & Management","Environment — Ecology, Biomes","Climate Change & India's Response","Soils of India — Types & Distribution","Indian Physiographic Divisions","Drainage System of India","Bio-geographic Zones of India","Environmental Geography","Ocean & Atmosphere Interactions","Satellites & Remote Sensing","Environmental Impact Assessment","Geography in UPSC — Map-based topics"]},
+  {id:"modernhistory",name:"Modern History",icon:"🏛️",color:"#c084fc",phase:1,cls:30,
+   topics:["European Penetration — Portuguese, Dutch, French, English","Battle of Plassey & Buxar","Consolidation of British Power in India","Governor-Generals & Viceroys","Administrative & Revenue Policies","Socio-Religious Reform Movements","Revolt of 1857 — Causes & Consequences","Formation of Indian National Congress","The Moderate Phase (1885–1905)","Partition of Bengal & Swadeshi Movement","The Extremist Phase — Bal, Pal, Lal","Revolutionary Nationalism","Home Rule League — Tilak & Besant","Lucknow Pact & Montagu-Chelmsford Reforms","Gandhi's Entry into Indian Politics","Non-Cooperation Movement","Civil Disobedience Movement","Round Table Conferences","Government of India Act, 1935","Congress Ministries & 1937 Elections","Quit India Movement","INA & Subhash Chandra Bose","Post-War Struggle & Independence","Partition & its Consequences","Economic Impact of British Rule","Education under British Rule","Press & Literature in Colonial India","Women's Movement in Colonial India","Tribal & Peasant Movements","Integration of Princely States"]},
+  {id:"ancienthistory",name:"Ancient & Medieval History",icon:"🏺",color:"#f97316",phase:2,cls:25,
+   topics:["Prehistoric India — Paleolithic to Chalcolithic","Indus Valley Civilization — Sites & Features","Vedic Age — Rig Vedic & Later Vedic","Jainism — Teachings & Spread","Buddhism — Teachings, Councils & Spread","Mahajanapadas & Rise of Magadha","Mauryan Empire — Administration & Art","Ashoka — Dhamma, Edicts & Legacy","Post-Mauryan India — Sungas, Kushanas","Gupta Empire — Golden Age","Post-Gupta India — Harshavardhana","South India — Sangam Age, Cholas, Pallavas","Chola Empire — Administration & Art","Delhi Sultanate — Foundation & Dynasties","Vijayanagara Empire","Mughal Empire — Akbar to Aurangzeb","Bhakti & Sufi Movements","Mughal Culture, Art & Architecture","Maratha Confederacy & Shivaji","Architecture — Temples, Stupas, Mosques","Indian Sculpture Traditions","Painting Traditions — Ajanta to Mughal","Music & Dance — Classical Traditions","Literature in Ancient & Medieval India","Science & Technology in Ancient India","Trade & Commerce in Ancient India","Religions — Hinduism, Buddhism, Jainism, Islam","Society in Ancient India","Medieval Agrarian Economy","Regional Kingdoms & Cultural Synthesis"]},
+  {id:"environment",name:"Environment & Ecology",icon:"🌿",color:"#10b981",phase:2,cls:25,
+   topics:["Ecology — Basics, Biotic & Abiotic Factors","Ecosystem — Structure & Functions","Food Chain, Food Web & Energy Flow","Biogeochemical Cycles","Biodiversity — Types & Importance","Biodiversity Hotspots — India & World","Wildlife Conservation — Protected Areas","Forest Types & Forest Policy of India","Environmental Pollution — Types & Control","Air Pollution — Causes, Effects, Standards","Water Pollution — Sources & Treatment","Soil Pollution & Land Degradation","Climate Change — Causes & Effects","Greenhouse Gases & Global Warming","Ozone Layer Depletion","Acid Rain & Its Effects","Wetlands — Types, Functions, Ramsar Sites","Coastal Ecology — Mangroves, Coral Reefs","Environmental Laws of India","EIA — Environmental Impact Assessment","Environmental Agreements — Kyoto, Paris, CBD","Renewable Energy — Solar, Wind, Hydro","Nuclear Energy — Benefits & Risks","Sustainable Development — Concepts","Green Economy & Circular Economy","Environmental Ethics","Invasive Species — Issues","Endangered Species of India","Conservation Strategies — In-situ, Ex-situ","Current Environmental Issues"]},
+  {id:"sciencetech",name:"Science & Technology",icon:"🔬",color:"#2dd4bf",phase:2,cls:25,
+   topics:["Space Technology — ISRO Missions","Satellite Technology & Applications","Nuclear Technology — Energy & Weapons","Defence Technology — Missiles, Radar","Biotechnology — Basics & Applications","Genetic Engineering & GMOs","CRISPR & Gene Editing","Nanotechnology — Applications","Information Technology — AI, ML, Big Data","Cybersecurity & Cyber Threats","Blockchain & Cryptocurrency","5G & Telecom Technology","Internet of Things (IoT)","Renewable Energy Technology","Electric Vehicles & Battery Technology","Medical Technology & Health Tech","COVID-19 & Vaccine Technology","Robotics & Automation","Quantum Computing","3D Printing Technology","Remote Sensing & GIS","Drones & UAV Technology","Semiconductor Technology","Hydrogen Fuel Technology","Carbon Capture Technology","Biofuels & Bioenergy","Physics — Nuclear, Quantum","Chemistry — Organic, Green","Biology — Human Body Systems","Current S&T Developments"]},
+  {id:"artculture",name:"Art & Culture",icon:"🎨",color:"#f43f5e",phase:2,cls:25,
+   topics:["Prehistoric Rock Art — Bhimbetka","Indus Valley Civilization Art","Mauryan Art & Architecture","Post-Mauryan Art — Gandhara, Mathura","Gupta Art — Golden Age","Medieval Temple Architecture — Styles","Cave Architecture — Ajanta, Ellora, Elephanta","Mughal & Indo-Islamic Architecture","Sculpture Traditions","Painting — Ajanta, Mughal, Rajput, Pahari","Classical Dance Forms","Classical Music — Hindustani & Carnatic","Folk Arts, Crafts & Textile Traditions","Sanskrit Literature","Regional Literary Traditions","Fairs, Festivals & Rituals of India","UNESCO Heritage Sites","Intangible Cultural Heritage","Theatre & Puppetry Traditions","Philosophy — Schools of Indian Thought","Languages & Scripts of India","Tribal Art & Culture","Indian Cuisine & Culinary Heritage","Sports & Games in Ancient India","Architecture of South India","Buddhist Architecture — Stupas, Viharas","Jain Art & Architecture","Numismatics — Study of Coins","Epigraphy — Study of Inscriptions","Current Cultural Affairs"]}
+];
+
+/* ── DB ── */
+let DB = null;
+const DB_NAME = 'studyapp_db';
+const DB_VERSION = 5;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = ev => {
+        try {
+          const db = ev.target.result;
+          const stores = [
+            ['sessions', {keyPath:'id',autoIncrement:true}],
+            ['subjects_progress', {keyPath:'id'}],
+            ['todos', {keyPath:'id',autoIncrement:true}],
+            ['habits', {keyPath:'id',autoIncrement:true}],
+            ['habit_logs', {keyPath:'id',autoIncrement:true}],
+            ['notes', {keyPath:'id',autoIncrement:true}],
+            ['scheduled_notifs', {keyPath:'id',autoIncrement:true}]
+          ];
+          stores.forEach(([name, opts]) => {
+            if (!db.objectStoreNames.contains(name)) {
+              const store = db.createObjectStore(name, opts);
+              if (name === 'sessions') { store.createIndex('date','date',{unique:false}); store.createIndex('subjectId','subjectId',{unique:false}); }
+              if (name === 'todos') store.createIndex('date','date',{unique:false});
+              if (name === 'habit_logs') { store.createIndex('habitId','habitId',{unique:false}); store.createIndex('date','date',{unique:false}); }
+              if (name === 'notes') store.createIndex('subjectId','subjectId',{unique:false});
+            }
+          });
+        } catch(e) { console.warn('DB upgrade error:', e); }
+      };
+      req.onsuccess = () => { DB = req.result; resolve(DB); };
+      req.onerror = () => { console.warn('DB open error:', req.error); resolve(null); }; // resolve not reject!
+      req.onblocked = () => { console.warn('DB blocked'); resolve(null); };
+      // Timeout fallback
+      setTimeout(() => { if(!DB) resolve(null); }, 3000);
+    } catch(e) {
+      console.warn('IndexedDB not available:', e);
+      resolve(null);
+    }
+  });
+}
+
+function dbGet(store, key) {
+  if(!DB) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(undefined);
+    } catch(e) { resolve(undefined); }
+  });
+}
+function dbGetAll(store, index, query) {
+  if(!DB) return Promise.resolve([]);
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readonly');
+      const s = tx.objectStore(store);
+      const req = index ? s.index(index).getAll(query) : s.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch(e) { resolve([]); }
+  });
+}
+function dbPut(store, item) {
+  if(!DB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readwrite');
+      const req = tx.objectStore(store).put(item);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch(e) { resolve(null); }
+  });
+}
+function dbAdd(store, item) {
+  if(!DB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readwrite');
+      const req = tx.objectStore(store).add(item);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch(e) { resolve(null); }
+  });
+}
+function dbDelete(store, key) {
+  if(!DB) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readwrite');
+      const req = tx.objectStore(store).delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch(e) { resolve(); }
+  });
+}
+function dbClear(store) {
+  if(!DB) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const tx = DB.transaction(store, 'readwrite');
+      const req = tx.objectStore(store).clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch(e) { resolve(); }
+  });
+}
+
+/* ── LOCAL STORAGE HELPERS ── */
+function lsGet(k, def=null) { try { const v=localStorage.getItem(k); return v!==null?JSON.parse(v):def; } catch{return def;} }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch{} }
+
+/* ── UTILS ── */
+function today() { return new Date().toISOString().slice(0,10); }
+function fmtDuration(secs) {
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60), s=secs%60;
+  if(h>0) return `${h}h ${m}m`;
+  return m>0 ? `${m}m ${s}s` : `${s}s`;
+}
+function fmtTimer(secs) {
+  const h=String(Math.floor(secs/3600)).padStart(2,'0');
+  const m=String(Math.floor((secs%3600)/60)).padStart(2,'0');
+  const s=String(secs%60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+function fmtDate(d) {
+  if(!d) return '';
+  const dt = typeof d==='string' ? new Date(d+'T00:00:00') : new Date(d);
+  return dt.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+}
+function fmtHrs(secs) {
+  const h=(secs/3600).toFixed(1);
+  return h+'h';
+}
+
+/* ── TOAST ── */
+function toast(msg, type='info') {
+  const w = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  const icons = {success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  t.className = 'toast';
+  t.style.borderColor = type==='success'?'rgba(34,197,94,.3)':type==='error'?'rgba(239,68,68,.3)':'var(--border2)';
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  w.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+/* ── NAVIGATION ── */
+let currentPage = 'dashboard';
+function nav(page) {
+  try {
+    currentPage = page;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
+    const panel = document.getElementById('panel-'+page);
+    if(panel) panel.classList.add('on');
+    else { // fallback to dashboard
+      const db = document.getElementById('panel-dashboard');
+      if(db) db.classList.add('on');
+    }
+    document.querySelectorAll(`[data-page="${page}"]`).forEach(b=>b.classList.add('on'));
+    closeSidebar();
+    refreshPage(page);
+  } catch(e) { console.warn('nav error:', e); }
+}
+function refreshPage(page) {
+  if(page==='dashboard') renderDashboard();
+  else if(page==='sessions') renderSessions();
+  else if(page==='subjects') renderSubjects();
+  else if(page==='today') renderToday();
+  else if(page==='habits') renderHabits();
+  else if(page==='analytics') renderAnalytics();
+  else if(page==='notes') renderNotes();
+  else if(page==='backup') renderBackup();
+  else if(page==='settings') renderSettings();
+}
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sboverlay');
+  sb.classList.toggle('open');
+  ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+}
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sboverlay');
+  sb.classList.remove('open');
+  ov.style.display = 'none';
+}
+function openModal(id) { document.getElementById(id).classList.add('on'); }
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('on'); });
+});
+
+/* ── TIMER ── */
+let timerInterval = null, timerSecs = 0, timerRunning = false, timerPaused = false;
+let activeSessionSubject = '', activeSessionNotes = '';
+
+function timerStart() {
+  const subj = document.getElementById('sess-subject').value;
+  if(!subj) { toast('Select a subject first!','warning'); document.getElementById('sess-subject').classList.add('shake'); setTimeout(()=>document.getElementById('sess-subject').classList.remove('shake'),400); return; }
+  activeSessionSubject = subj;
+  activeSessionNotes = document.getElementById('sess-notes').value;
+  timerRunning = true; timerPaused = false;
+  document.getElementById('timer-start-btn').style.display='none';
+  document.getElementById('timer-pause-btn').style.display='';
+  document.getElementById('timer-stop-btn').style.display='';
+  document.getElementById('timer-subject-label').textContent = '📚 ' + getSubjectName(subj);
+  updateSBActive(true);
+  timerInterval = setInterval(() => {
+    timerSecs++;
+    const disp = fmtTimer(timerSecs);
+    const el = document.getElementById('timer-display');
+    if(el) el.textContent = disp;
+    const sb = document.getElementById('sb-timer');
+    if(sb) sb.textContent = disp;
+  }, 1000);
+  toast('Session started! 🚀','success');
+  if(Notification.permission==='granted') {
+    scheduleNotification('⏱ Session Active','Your study session is running. Keep going!', 30*60*1000, 'session-running');
+  }
+}
+function timerPause() {
+  if(!timerPaused) {
+    clearInterval(timerInterval); timerPaused=true;
+    document.getElementById('timer-pause-btn').textContent='▶ Resume';
+    document.getElementById('timer-display').classList.add('timer-paused');
+    document.getElementById('timer-display').classList.remove('timer-display');
+    toast('Paused — take a break ☕','info');
+  } else {
+    timerPaused=false;
+    document.getElementById('timer-pause-btn').textContent='⏸ Pause';
+    document.getElementById('timer-display').classList.remove('timer-paused');
+    timerInterval = setInterval(()=>{ timerSecs++; document.getElementById('timer-display').textContent=fmtTimer(timerSecs); document.getElementById('sb-timer').textContent=fmtTimer(timerSecs); },1000);
+    toast('Resumed! 💪','success');
+  }
+}
+async function timerStop() {
+  if(timerSecs < 30) { toast('Minimum 30 seconds to save a session','warning'); return; }
+  clearInterval(timerInterval);
+  const session = {
+    subjectId: activeSessionSubject,
+    subjectName: getSubjectName(activeSessionSubject),
+    date: today(),
+    duration: timerSecs,
+    notes: document.getElementById('sess-notes').value || '',
+    timestamp: Date.now()
+  };
+  await dbAdd('sessions', session);
+  updateStreak();
+  toast(`✅ Session saved! ${fmtDuration(timerSecs)} of ${session.subjectName}`,'success');
+  timerSecs=0; timerRunning=false; timerPaused=false;
+  document.getElementById('timer-display').textContent='00:00:00';
+  document.getElementById('timer-pause-btn').textContent='⏸ Pause';
+  document.getElementById('timer-display').classList.remove('timer-paused');
+  document.getElementById('timer-start-btn').style.display='';
+  document.getElementById('timer-pause-btn').style.display='none';
+  document.getElementById('timer-stop-btn').style.display='none';
+  document.getElementById('timer-subject-label').textContent='Select a subject to begin';
+  document.getElementById('sess-notes').value='';
+  updateSBActive(false);
+  renderSessions();
+}
+function updateSBActive(on) {
+  const sb = document.getElementById('sb-active');
+  if(sb) sb.style.display = on ? '' : 'none';
+  if(on) {
+    const el = document.getElementById('sb-subject');
+    if(el) el.textContent = getSubjectName(activeSessionSubject);
+  }
+}
+function getSubjectName(id) {
+  const s = SUBJECTS.find(s=>s.id===id);
+  if(s) return s.name;
+  const custom = lsGet('custom_subjects',[]);
+  const c = custom.find(c=>c.id===id);
+  return c ? c.name : id;
+}
+
+/* ── STREAK ── */
+function updateStreak() {
+  const streak = lsGet('streak_data', {current:0, best:0, lastDate:'', heatmap:{}});
+  const t = today();
+  const hm = streak.heatmap || {};
+  const sessions_today = hm[t] || 0;
+  // Sum today's sessions from DB not available here, so just mark today
+  if(streak.lastDate !== t) {
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+    const yStr = yesterday.toISOString().slice(0,10);
+    if(streak.lastDate === yStr) streak.current++;
+    else if(streak.lastDate !== t) streak.current = 1;
+    streak.lastDate = t;
+    if(streak.current > streak.best) streak.best = streak.current;
+  }
+  hm[t] = (hm[t]||0) + 1;
+  streak.heatmap = hm;
+  lsSet('streak_data', streak);
+  document.getElementById('streak-badge').textContent = '🔥 ' + streak.current;
+}
+function getStreak() { return lsGet('streak_data',{current:0,best:0,lastDate:'',heatmap:{}}); }
+
+/* ── SUBJECTS PROGRESS ── */
+async function getSubjectProgress(id) {
+  try { return await dbGet('subjects_progress', id) || {id, checked:{}}; } catch { return {id, checked:{}}; }
+}
+async function saveSubjectProgress(id, checked) {
+  await dbPut('subjects_progress', {id, checked});
+}
+async function toggleTopic(subjId, topicIdx) {
+  const prog = await getSubjectProgress(subjId);
+  const key = String(topicIdx);
+  prog.checked[key] = !prog.checked[key];
+  await saveSubjectProgress(subjId, prog.checked);
+  const cb = document.querySelector(`[data-topic="${subjId}-${topicIdx}"]`);
+  if(cb) {
+    cb.classList.toggle('done', prog.checked[key]);
+    cb.textContent = prog.checked[key] ? '✓' : '';
+    const nameEl = cb.nextElementSibling;
+    if(nameEl) nameEl.classList.toggle('done', prog.checked[key]);
+  }
+  // Update progress bar
+  const subj = SUBJECTS.find(s=>s.id===subjId);
+  if(subj) {
+    const total = subj.topics.length;
+    const done = Object.values(prog.checked).filter(Boolean).length;
+    const pct = Math.round((done/total)*100);
+    const bar = document.querySelector(`.subj-prog-${subjId}`);
+    if(bar) bar.style.width = pct+'%';
+    const cnt = document.querySelector(`.subj-cnt-${subjId}`);
+    if(cnt) cnt.textContent = `${done}/${total}`;
+  }
+}
+
+/* ── RENDER SUBJECTS ── */
+async function renderSubjects() {
+  const list = document.getElementById('subjects-list');
+  if(!list) return;
+  list.innerHTML = '';
+  const allSubjects = [...SUBJECTS, ...lsGet('custom_subjects',[])];
+  for(const subj of allSubjects) {
+    const prog = await getSubjectProgress(subj.id);
+    const topics = subj.topics || [];
+    const done = Object.values(prog.checked||{}).filter(Boolean).length;
+    const total = topics.length;
+    const pct = total>0 ? Math.round((done/total)*100) : 0;
+    const card = document.createElement('div');
+    card.className = 'subj-card';
+    card.innerHTML = `
+      <button class="subj-hdr" onclick="toggleSubjectBody('${subj.id}')">
+        <span style="font-size:20px">${subj.icon||'📚'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--txt)">${subj.name}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+            <div class="pbar" style="flex:1;height:4px"><div class="pbar-fill subj-prog-${subj.id}" style="width:${pct}%;background:${subj.color||'var(--purple)'}"></div></div>
+            <span class="subj-cnt-${subj.id}" style="font-size:10px;color:var(--txt3);white-space:nowrap">${done}/${total}</span>
+          </div>
+        </div>
+        <span style="font-size:10px;color:${subj.color||'var(--purple)'};font-weight:700;margin-left:6px">${pct}%</span>
+        <span style="color:var(--txt3);margin-left:6px;font-size:12px" id="subj-arrow-${subj.id}">▼</span>
+      </button>
+      <div class="subj-body" id="subj-body-${subj.id}">
+        ${topics.map((topic,i)=>`
+          <div class="topic-row">
+            <div class="topic-cb ${prog.checked&&prog.checked[i]?'done':''}" data-topic="${subj.id}-${i}" onclick="toggleTopic('${subj.id}',${i})">${prog.checked&&prog.checked[i]?'✓':''}</div>
+            <div class="topic-name ${prog.checked&&prog.checked[i]?'done':''}">${topic}</div>
+          </div>
+        `).join('')}
+      </div>`;
+    list.appendChild(card);
+  }
+  // Populate subject dropdowns
+  populateSubjectDropdowns();
+}
+function toggleSubjectBody(id) {
+  const body = document.getElementById('subj-body-'+id);
+  const arrow = document.getElementById('subj-arrow-'+id);
+  body.classList.toggle('open');
+  if(arrow) arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+function expandAll() { document.querySelectorAll('.subj-body').forEach(b=>b.classList.add('open')); document.querySelectorAll('[id^="subj-arrow-"]').forEach(a=>a.textContent='▲'); }
+function collapseAll() { document.querySelectorAll('.subj-body').forEach(b=>b.classList.remove('open')); document.querySelectorAll('[id^="subj-arrow-"]').forEach(a=>a.textContent='▼'); }
+function populateSubjectDropdowns() {
+  const allS = [...SUBJECTS, ...lsGet('custom_subjects',[])];
+  const opts = '<option value="">— Choose Subject —</option>' + allS.map(s=>`<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
+  ['sess-subject','todo-subject','note-subject'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) { const wasVal=el.value; el.innerHTML = opts.replace('— Choose Subject —', el.id==='todo-subject'?'— None —':el.id==='note-subject'?'— Subject —':'— Choose Subject —'); el.value=wasVal; }
+  });
+}
+function openAddSubject() { openModal('modal-subject'); }
+function addCustomSubject() {
+  const name = document.getElementById('new-subj-name').value.trim();
+  if(!name) { toast('Enter subject name','warning'); return; }
+  const icon = document.getElementById('new-subj-icon').value||'📖';
+  const target = parseInt(document.getElementById('new-subj-target').value)||2;
+  const custom = lsGet('custom_subjects',[]);
+  const id = 'custom_'+Date.now();
+  custom.push({id, name, icon, color:'#6366f1', topics:[], target});
+  lsSet('custom_subjects', custom);
+  closeModal('modal-subject');
+  toast('Subject added!','success');
+  renderSubjects();
+}
+async function markAllToday() {
+  toast('Marked all visible topics as done','success');
+}
+async function exportSubjectProgress() {
+  const allS = [...SUBJECTS,...lsGet('custom_subjects',[])];
+  const data = {};
+  for(const s of allS) {
+    const prog = await getSubjectProgress(s.id);
+    const done = Object.values(prog.checked||{}).filter(Boolean).length;
+    data[s.name] = {done, total:s.topics.length, pct:s.topics.length?Math.round((done/s.topics.length)*100):0};
+  }
+  downloadJSON(data, 'subject-progress.json');
+}
+
+/* ── SESSIONS RENDER ── */
+async function renderSessions() {
+  const sessions = await dbGetAll('sessions');
+  sessions.sort((a,b)=>b.timestamp-a.timestamp);
+  const list = document.getElementById('sessions-list');
+  const count = document.getElementById('sessions-count');
+  if(count) count.textContent = sessions.length + ' sessions';
+  if(!list) return;
+  if(sessions.length===0) { list.innerHTML='<div class="empty"><div class="empty-ic">⏱</div><div class="empty-txt">No sessions yet. Start your first!</div></div>'; return; }
+  list.innerHTML = sessions.slice(0,30).map(s=>`
+    <div class="session-item">
+      <div>
+        <div style="font-size:12px;font-weight:700">${s.subjectName||s.subjectId}</div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:2px">${fmtDate(s.date)} • ${s.notes||''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:900;color:var(--green)">${fmtDuration(s.duration)}</div>
+        <button onclick="deleteSession(${s.id})" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;margin-top:2px">🗑</button>
+      </div>
+    </div>`).join('');
+}
+async function deleteSession(id) {
+  await dbDelete('sessions', id);
+  renderSessions();
+  toast('Session deleted','info');
+}
+
+/* ── TODAY / TODOS ── */
+async function renderToday() {
+  const t = today();
+  document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  const todos = await dbGetAll('todos');
+  const todayTodos = todos.filter(td=>td.date===t||(!td.date&&td.timestamp>Date.now()-86400000));
+  const remaining = todayTodos.filter(td=>!td.completed).length;
+  document.getElementById('todo-count').textContent = remaining;
+  const list = document.getElementById('todo-list');
+  if(!list) return;
+  if(todayTodos.length===0) { list.innerHTML='<div class="empty"><div class="empty-ic">✅</div><div class="empty-txt">No tasks for today. Add one!</div></div>'; return; }
+  list.innerHTML = todayTodos.sort((a,b)=>a.completed-b.completed).map(td=>`
+    <div class="todo-item">
+      <div class="todo-cb ${td.completed?'done':''}" onclick="toggleTodo(${td.id})">${td.completed?'✓':''}</div>
+      <div style="flex:1">
+        <div class="todo-text ${td.completed?'done':''}">${td.text}</div>
+        ${td.subject?`<div class="todo-time">📚 ${getSubjectName(td.subject)}</div>`:''}
+        ${td.reminder?`<div class="todo-time">⏰ ${td.reminder}</div>`:''}
+      </div>
+      <button onclick="deleteTodo(${td.id})" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px">🗑</button>
+    </div>`).join('');
+  // Set default date in modal
+  document.getElementById('todo-date').value = t;
+  // Load reminder setting
+  const settings = lsGet('settings',{});
+  if(settings.reminderTime) document.getElementById('reminder-time').value = settings.reminderTime;
+  if(settings.reminderTime) document.getElementById('reminder-status').textContent = `✅ Daily reminder set for ${settings.reminderTime}`;
+}
+function openAddTodo() {
+  document.getElementById('todo-date').value = today();
+  openModal('modal-todo');
+}
+async function addTodo() {
+  const text = document.getElementById('todo-input').value.trim();
+  if(!text) { toast('Enter a task','warning'); return; }
+  const todo = {
+    text, date: document.getElementById('todo-date').value || today(),
+    reminder: document.getElementById('todo-reminder').value,
+    subject: document.getElementById('todo-subject').value,
+    completed: false, timestamp: Date.now()
+  };
+  const id = await dbAdd('todos', todo);
+  if(todo.reminder) {
+    const [h,m] = todo.reminder.split(':').map(Number);
+    const now = new Date();
+    const due = new Date(todo.date+'T'+todo.reminder+':00');
+    const diff = due.getTime() - Date.now();
+    if(diff > 0) {
+      scheduleNotification(`📋 Task: ${text}`, `Reminder for your task today`, diff, 'todo-'+id);
+      toast(`Reminder set for ${todo.reminder}`,'success');
+    }
+  }
+  closeModal('modal-todo');
+  document.getElementById('todo-input').value='';
+  toast('Task added!','success');
+  renderToday();
+}
+async function toggleTodo(id) {
+  const todos = await dbGetAll('todos');
+  const td = todos.find(t=>t.id===id);
+  if(td) { td.completed = !td.completed; await dbPut('todos',td); renderToday(); if(td.completed) toast('Task done! ✅','success'); }
+}
+async function deleteTodo(id) { await dbDelete('todos',id); renderToday(); }
+async function clearCompletedTodos() {
+  const todos = await dbGetAll('todos');
+  const t = today();
+  for(const td of todos) { if(td.completed && td.date===t) await dbDelete('todos',td.id); }
+  renderToday(); toast('Cleared completed tasks','info');
+}
+function saveReminder() {
+  const time = document.getElementById('reminder-time').value;
+  const settings = lsGet('settings',{});
+  settings.reminderTime = time;
+  lsSet('settings', settings);
+  scheduleDaily(time);
+  document.getElementById('reminder-status').textContent = `✅ Daily reminder set for ${time}`;
+  toast(`Daily reminder set for ${time}`,'success');
+}
+function scheduleDaily(time) {
+  const [h,m] = time.split(':').map(Number);
+  const now = new Date();
+  const next = new Date();
+  next.setHours(h,m,0,0);
+  if(next <= now) next.setDate(next.getDate()+1);
+  const diff = next.getTime()-Date.now();
+  scheduleNotification('📚 Study Time!',`It's ${time} — time to start your study session! Let's go 🚀`, diff, 'daily-reminder');
+}
+
+/* ── HABITS ── */
+let selectedHabitColor = '#6366f1';
+function selectHabitColor(el) {
+  selectedHabitColor = el.dataset.color;
+  document.querySelectorAll('.color-picker').forEach(c=>c.style.border='2px solid transparent');
+  el.style.border='2px solid white';
+}
+function openAddHabit() { openModal('modal-habit'); }
+async function addHabit() {
+  const name = document.getElementById('habit-name').value.trim();
+  if(!name) { toast('Enter habit name','warning'); return; }
+  await dbAdd('habits', {name, icon:document.getElementById('habit-icon').value||'✅', color:selectedHabitColor, createdAt:today()});
+  closeModal('modal-habit');
+  document.getElementById('habit-name').value='';
+  document.getElementById('habit-icon').value='';
+  toast('Habit added!','success');
+  renderHabits();
+}
+async function renderHabits() {
+  const streak = getStreak();
+  document.getElementById('streak-big').textContent = streak.current;
+  document.getElementById('streak-best').textContent = streak.best;
+  renderHeatmap('heatmap-canvas', streak.heatmap||{}, 60);
+  const habits = await dbGetAll('habits');
+  const t = today();
+  const allLogs = await dbGetAll('habit_logs');
+  const todayLogs = allLogs.filter(l=>l.date===t).map(l=>l.habitId);
+  const doneCount = habits.filter(h=>todayLogs.includes(h.id)).length;
+  const el = document.getElementById('habits-done-count');
+  if(el) el.textContent = `${doneCount}/${habits.length} done`;
+  const list = document.getElementById('habits-list');
+  if(!list) return;
+  if(habits.length===0) { list.innerHTML='<div class="empty"><div class="empty-ic">🔥</div><div class="empty-txt">No habits yet. Add your first habit!</div></div>'; return; }
+  list.innerHTML = habits.map(h=>{
+    const done = todayLogs.includes(h.id);
+    return `<div class="habit-row">
+      <div class="habit-check ${done?'done':''}" onclick="toggleHabit(${h.id})" style="${done?'background:'+h.color+';border-color:'+h.color:''}">${done?'✓':''}</div>
+      <div style="font-size:18px">${h.icon}</div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:700">${h.name}</div></div>
+      <button onclick="deleteHabit(${h.id})" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px">🗑</button>
+    </div>`;
+  }).join('');
+}
+async function toggleHabit(id) {
+  const t = today();
+  const allLogs = await dbGetAll('habit_logs');
+  const existing = allLogs.find(l=>l.habitId===id&&l.date===t);
+  if(existing) { await dbDelete('habit_logs',existing.id); toast('Habit unmarked','info'); }
+  else { await dbAdd('habit_logs',{habitId:id,date:t,timestamp:Date.now()}); toast('Habit done! 💪','success'); }
+  renderHabits();
+}
+async function deleteHabit(id) {
+  await dbDelete('habits',id);
+  const allLogs = await dbGetAll('habit_logs');
+  for(const l of allLogs.filter(l=>l.habitId===id)) await dbDelete('habit_logs',l.id);
+  renderHabits(); toast('Habit removed','info');
+}
+
+/* ── HEATMAP CANVAS RENDERER ── */
+function renderHeatmap(canvasId, heatmapData, days=60) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio||1;
+  const cols = Math.ceil(days/7), rows=7;
+  const cell=14, gap=3;
+  const w=(cell+gap)*cols+gap, h=(cell+gap)*rows+gap+20;
+  canvas.width=w*dpr; canvas.height=h*dpr;
+  canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+  const days_arr=[];
+  for(let i=days-1;i>=0;i--) { const d=new Date(); d.setDate(d.getDate()-i); days_arr.push(d.toISOString().slice(0,10)); }
+  // Day labels
+  const dayLabels=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  ctx.font='8px system-ui';
+  ctx.fillStyle='rgba(156,163,175,0.6)';
+  for(let r=0;r<7;r++) { ctx.fillText(dayLabels[r],0,(r+1)*(cell+gap)+gap-3); }
+  // Start from col based on first day's weekday
+  const firstDay = new Date(days_arr[0]+'T00:00:00').getDay();
+  let col=0, row=firstDay;
+  const todayStr=today();
+  days_arr.forEach(dateStr=>{
+    const hours=heatmapData[dateStr]||0;
+    const x=gap+16+col*(cell+gap), y=gap+row*(cell+gap);
+    let fillColor='#1a1b2e';
+    if(hours>0) fillColor=hours>=4?'#4ade80':hours>=2?'#22c55e':hours>=1?'#15803d':'#166534';
+    ctx.fillStyle=fillColor;
+    roundRect(ctx,x,y,cell,cell,3);
+    ctx.fill();
+    if(dateStr===todayStr) { ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5; roundRect(ctx,x-.75,y-.75,cell+1.5,cell+1.5,3.5); ctx.stroke(); }
+    row++;
+    if(row>=7) { row=0; col++; }
+  });
+}
+function roundRect(ctx,x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+/* ── CHART RENDERING ENGINE ── */
+function drawLineChart(canvasId, labels, datasets, opts={}) {
+  const canvas=document.getElementById(canvasId); if(!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.parentElement?.offsetWidth||300, H=parseInt(canvas.getAttribute('height'))||150;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  const pad={top:14,right:14,bottom:28,left:38};
+  const pw=W-pad.left-pad.right, ph=H-pad.top-pad.bottom;
+  if(pw<=0||ph<=0||!labels.length) return;
+  const allVals=datasets.flatMap(d=>d.data).filter(v=>!isNaN(v));
+  const maxV=Math.max(...allVals,1)*1.15;
+  // Grid lines
+  const gridCount=4;
+  ctx.strokeStyle='rgba(30,34,53,0.8)'; ctx.lineWidth=1;
+  for(let i=0;i<=gridCount;i++) {
+    const y=pad.top+ph-(i/gridCount)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+pw,y); ctx.stroke();
+    ctx.fillStyle='rgba(75,85,99,0.8)'; ctx.font=`${Math.max(8,W/50)}px system-ui`; ctx.textAlign='right';
+    ctx.fillText((maxV*i/gridCount).toFixed(1)+'h', pad.left-4, y+3);
+  }
+  // X labels
+  ctx.fillStyle='rgba(75,85,99,0.9)'; ctx.textAlign='center';
+  const step=Math.max(1,Math.floor(labels.length/7));
+  labels.forEach((l,i)=>{ if(i%step===0||i===labels.length-1) ctx.fillText(l,pad.left+i*(pw/(labels.length-1||1)),H-6); });
+  // Lines
+  datasets.forEach(ds => {
+    if(!ds.data.length) return;
+    const color=ds.color||'#6366f1';
+    // Fill area
+    const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+ph);
+    grad.addColorStop(0,color.replace(')',',0.3)').replace('rgb','rgba')||'rgba(99,102,241,0.3)');
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top+ph);
+    ds.data.forEach((v,i)=>{ const x=pad.left+i*(pw/(ds.data.length-1||1)); const y=pad.top+ph-(v/maxV)*ph; i===0?ctx.lineTo(x,y):ctx.lineTo(x,y); });
+    ctx.lineTo(pad.left+(ds.data.length-1)*(pw/(ds.data.length-1||1)),pad.top+ph);
+    ctx.closePath(); ctx.fill();
+    // Line
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    ds.data.forEach((v,i)=>{ const x=pad.left+i*(pw/(ds.data.length-1||1)); const y=pad.top+ph-(v/maxV)*ph; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+    // Dots
+    ds.data.forEach((v,i)=>{ const x=pad.left+i*(pw/(ds.data.length-1||1)); const y=pad.top+ph-(v/maxV)*ph; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill(); });
+  });
+}
+
+function drawBarChart(canvasId, labels, data, opts={}) {
+  const canvas=document.getElementById(canvasId); if(!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.parentElement?.offsetWidth||300, H=parseInt(canvas.getAttribute('height'))||180;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  if(!labels.length||!data.length) return;
+  const pad={top:14,right:14,bottom:50,left:40};
+  const pw=W-pad.left-pad.right, ph=H-pad.top-pad.bottom;
+  const maxV=Math.max(...data,1)*1.15;
+  const colors=opts.colors||['#6366f1','#22c55e','#f59e0b','#ef4444','#38bdf8','#ec4899','#f97316','#2dd4bf'];
+  // Grid
+  ctx.strokeStyle='rgba(30,34,53,0.8)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++) {
+    const y=pad.top+ph-(i/4)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+pw,y); ctx.stroke();
+    ctx.fillStyle='rgba(75,85,99,0.8)'; ctx.font='9px system-ui'; ctx.textAlign='right';
+    ctx.fillText((maxV*i/4).toFixed(1)+'h', pad.left-4, y+3);
+  }
+  const barW=Math.min(40, (pw/labels.length)-4);
+  labels.forEach((l,i)=>{
+    const x=pad.left+(i+.5)*(pw/labels.length);
+    const bh=(data[i]/maxV)*ph;
+    const y=pad.top+ph-bh;
+    // Bar gradient
+    const grad=ctx.createLinearGradient(0,y,0,pad.top+ph);
+    const c=colors[i%colors.length];
+    grad.addColorStop(0,c); grad.addColorStop(1,c+'66');
+    ctx.fillStyle=grad;
+    roundRect(ctx,x-barW/2,y,barW,bh,4); ctx.fill();
+    // Label
+    ctx.fillStyle='rgba(156,163,175,0.9)'; ctx.font='9px system-ui'; ctx.textAlign='center';
+    // Wrap long labels
+    const words=l.split(' ');
+    const short=words[0].length>10?words[0].slice(0,9)+'…':words[0];
+    ctx.fillText(short, x, H-6);
+    // Value on bar
+    if(data[i]>0) { ctx.fillStyle='rgba(229,231,235,0.9)'; ctx.font='8px system-ui'; ctx.fillText(data[i].toFixed(1)+'h',x,y-3); }
+  });
+}
+
+function drawDonutChart(canvasId, data, labels, colors) {
+  const canvas=document.getElementById(canvasId); if(!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  const size=160;
+  canvas.width=size*dpr; canvas.height=size*dpr;
+  canvas.style.width=size+'px'; canvas.style.height=size+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,size,size);
+  const total=data.reduce((a,b)=>a+b,0);
+  if(total===0) { ctx.fillStyle='rgba(30,34,53,0.5)'; ctx.beginPath(); ctx.arc(size/2,size/2,60,0,Math.PI*2); ctx.fill(); return; }
+  let start=-Math.PI/2;
+  const dc=colors||['#6366f1','#22c55e','#f59e0b','#ef4444','#38bdf8','#ec4899','#f97316','#2dd4bf'];
+  data.forEach((v,i)=>{
+    const angle=(v/total)*Math.PI*2;
+    ctx.fillStyle=dc[i%dc.length];
+    ctx.beginPath(); ctx.moveTo(size/2,size/2); ctx.arc(size/2,size/2,65,start,start+angle); ctx.closePath(); ctx.fill();
+    start+=angle;
+  });
+  // Inner circle
+  ctx.fillStyle='#0f1117';
+  ctx.beginPath(); ctx.arc(size/2,size/2,38,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(165,180,252,0.9)'; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(labels.length+' subj',size/2,size/2);
+}
+
+/* ── ANALYTICS ── */
+async function renderAnalytics() {
+  const sessions = await dbGetAll('sessions');
+  const totalSecs = sessions.reduce((a,s)=>a+s.duration,0);
+  const totalHrs = (totalSecs/3600).toFixed(1);
+  const totalSess = sessions.length;
+  // By day
+  const byDay={};
+  sessions.forEach(s=>{ byDay[s.date]=(byDay[s.date]||0)+s.duration/3600; });
+  const sortedDays=Object.keys(byDay).sort();
+  const bestDay = Math.max(...Object.values(byDay),0);
+  const avgDay = sortedDays.length>0 ? (totalSecs/3600/sortedDays.length) : 0;
+  document.getElementById('an-total-hrs').textContent = totalHrs;
+  document.getElementById('an-total-sess').textContent = totalSess;
+  document.getElementById('an-best-day').textContent = bestDay.toFixed(1)+'h';
+  document.getElementById('an-avg-day').textContent = avgDay.toFixed(1)+'h';
+  // Last 30 days line chart
+  const last30=[]; const last30Labels=[];
+  for(let i=29;i>=0;i--) { const d=new Date(); d.setDate(d.getDate()-i); const ds=d.toISOString().slice(0,10); last30.push(byDay[ds]||0); last30Labels.push(d.getDate().toString()); }
+  setTimeout(()=>{
+    drawLineChart('an-line-chart',last30Labels,[{data:last30,color:'#6366f1'}]);
+    // Subject bar chart
+    const bySubj={};
+    sessions.forEach(s=>{ const k=s.subjectName||s.subjectId; bySubj[k]=(bySubj[k]||0)+s.duration/3600; });
+    const subjKeys=Object.keys(bySubj).sort((a,b)=>bySubj[b]-bySubj[a]);
+    const subjColors=SUBJECTS.map(s=>s.color);
+    drawBarChart('an-bar-chart',subjKeys,subjKeys.map(k=>bySubj[k]),{colors:subjColors});
+    // Heatmap
+    const streak=getStreak();
+    renderHeatmap('an-heatmap',streak.heatmap||{},60);
+    // Donut
+    drawDonutChart('an-donut-chart',subjKeys.map(k=>bySubj[k]),subjKeys,subjColors);
+    // Legend
+    const legend=document.getElementById('an-donut-legend');
+    if(legend) legend.innerHTML = subjKeys.slice(0,8).map((k,i)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px"><div style="width:10px;height:10px;border-radius:2px;background:${subjColors[i]||'#6366f1'};flex-shrink:0"></div><span style="color:var(--txt2)">${k}</span><span style="margin-left:auto;font-weight:700;color:var(--txt)">${bySubj[k].toFixed(1)}h</span></div>`).join('');
+    // Dashboard weekly chart
+    const weekLabels=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const weekData=[];
+    for(let i=6;i>=0;i--) { const d=new Date(); d.setDate(d.getDate()-i); weekData.push(byDay[d.toISOString().slice(0,10)]||0); }
+    drawLineChart('dash-week-chart',weekLabels,[{data:weekData,color:'#6366f1'}]);
+  }, 100);
+}
+
+/* ── DASHBOARD ── */
+async function renderDashboard() {
+  const now=new Date();
+  const hr=now.getHours();
+  const greet=hr<12?'Good Morning! ☀️':hr<17?'Good Afternoon! 🌤':hr<21?'Good Evening! 🌙':'Good Night! 🌛';
+  const el=document.getElementById('dash-greeting'); if(el) el.textContent=greet;
+  const de=document.getElementById('dash-date'); if(de) de.textContent=now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const streak=getStreak();
+  const sbadge=document.getElementById('streak-badge'); if(sbadge) sbadge.textContent='🔥 '+streak.current;
+  const sessions=await dbGetAll('sessions');
+  const t=today();
+  const todaySess=sessions.filter(s=>s.date===t);
+  const todaySecs=todaySess.reduce((a,s)=>a+s.duration,0);
+  const weekStart=new Date(); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+  const weekSess=sessions.filter(s=>new Date(s.date+'T00:00:00')>=weekStart);
+  const weekSecs=weekSess.reduce((a,s)=>a+s.duration,0);
+  const dth=document.getElementById('d-today-hrs'); if(dth) dth.textContent=fmtHrs(todaySecs);
+  const ds=document.getElementById('d-streak'); if(ds) ds.textContent=streak.current+'🔥';
+  const dwh=document.getElementById('d-week-hrs'); if(dwh) dwh.textContent=fmtHrs(weekSecs);
+  const dse=document.getElementById('d-sessions'); if(dse) dse.textContent=sessions.length;
+  // Recent sessions
+  const recentEl=document.getElementById('dash-sessions-list');
+  if(recentEl) {
+    const recent=sessions.sort((a,b)=>b.timestamp-a.timestamp).slice(0,5);
+    if(!recent.length) recentEl.innerHTML='<div class="empty"><div class="empty-ic">⏱</div><div class="empty-txt">No sessions yet</div></div>';
+    else recentEl.innerHTML=recent.map(s=>`<div class="session-item"><div><div style="font-size:12px;font-weight:700">${s.subjectName||s.subjectId}</div><div style="font-size:10px;color:var(--txt3)">${fmtDate(s.date)}</div></div><div style="font-size:13px;font-weight:900;color:var(--green)">${fmtDuration(s.duration)}</div></div>`).join('');
+  }
+  // Today's todos
+  const todos=await dbGetAll('todos');
+  const todayTodos=todos.filter(td=>td.date===t).slice(0,5);
+  const dTodosEl=document.getElementById('dash-todos-list');
+  if(dTodosEl) {
+    if(!todayTodos.length) dTodosEl.innerHTML='<div style="font-size:11px;color:var(--txt3);padding:4px 0">No tasks for today</div>';
+    else dTodosEl.innerHTML=todayTodos.map(td=>`<div class="todo-item"><div class="todo-cb ${td.completed?'done':''}" onclick="toggleTodo(${td.id})">${td.completed?'✓':''}</div><div class="todo-text ${td.completed?'done':''}">${td.text}</div></div>`).join('');
+  }
+  // Subject progress
+  const subjEl=document.getElementById('dash-subjects-list');
+  if(subjEl) {
+    const progHtml=[];
+    for(const subj of SUBJECTS.slice(0,6)) {
+      const prog=await getSubjectProgress(subj.id);
+      const done=Object.values(prog.checked||{}).filter(Boolean).length;
+      const total=subj.topics.length;
+      const pct=total>0?Math.round((done/total)*100):0;
+      progHtml.push(`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:11px">${subj.icon} ${subj.name}</span><span style="font-size:10px;color:var(--txt3)">${done}/${total}</span></div><div class="pbar"><div class="pbar-fill" style="width:${pct}%;background:${subj.color}"></div></div></div>`);
+    }
+    subjEl.innerHTML=progHtml.join('');
+  }
+  // Weekly chart
+  const byDay={};
+  sessions.forEach(s=>{ byDay[s.date]=(byDay[s.date]||0)+s.duration/3600; });
+  const weekLabels=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const weekData=[];
+  for(let i=6;i>=0;i--) { const d=new Date(); d.setDate(d.getDate()-i); weekData.push(byDay[d.toISOString().slice(0,10)]||0); }
+  setTimeout(()=>drawLineChart('dash-week-chart',weekLabels,[{data:weekData,color:'#6366f1'}]),100);
+}
+
+/* ── NOTES ── */
+async function renderNotes() {
+  populateSubjectDropdowns();
+  const notes=await dbGetAll('notes');
+  const list=document.getElementById('notes-list');
+  if(!list) return;
+  if(!notes.length) { list.innerHTML='<div class="empty"><div class="empty-ic">📝</div><div class="empty-txt">No notes saved yet</div></div>'; return; }
+  list.innerHTML=notes.sort((a,b)=>b.timestamp-a.timestamp).map(n=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div onclick="loadNoteById(${n.id})" style="cursor:pointer;flex:1">
+        <div style="font-size:12px;font-weight:700">${n.title||'Untitled'}</div>
+        <div style="font-size:10px;color:var(--txt3)">${getSubjectName(n.subjectId)||''} • ${fmtDate(n.date)}</div>
+      </div>
+      <button onclick="deleteNote(${n.id})" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px">🗑</button>
+    </div>`).join('');
+}
+async function saveNote() {
+  const title=document.getElementById('note-title').value.trim();
+  if(!title) { toast('Enter a title','warning'); return; }
+  const note={
+    title, subjectId:document.getElementById('note-subject').value,
+    cue:document.getElementById('note-cue').value,
+    main:document.getElementById('note-main').value,
+    summary:document.getElementById('note-summary').value,
+    date:today(), timestamp:Date.now()
+  };
+  await dbAdd('notes',note);
+  toast('Note saved!','success');
+  document.getElementById('note-title').value='';
+  document.getElementById('note-cue').value='';
+  document.getElementById('note-main').value='';
+  document.getElementById('note-summary').value='';
+  renderNotes();
+}
+async function loadNoteById(id) {
+  const note=await dbGet('notes',id);
+  if(!note) return;
+  document.getElementById('note-title').value=note.title||'';
+  document.getElementById('note-subject').value=note.subjectId||'';
+  document.getElementById('note-cue').value=note.cue||'';
+  document.getElementById('note-main').value=note.main||'';
+  document.getElementById('note-summary').value=note.summary||'';
+  window.scrollTo(0,0); toast('Note loaded','info');
+}
+async function deleteNote(id) { await dbDelete('notes',id); renderNotes(); }
+function loadNote() { toast('Select a note from the list below','info'); }
+
+/* ── BACKUP ── */
+async function renderBackup() {
+  const sessions=await dbGetAll('sessions');
+  const todos=await dbGetAll('todos');
+  const habits=await dbGetAll('habits');
+  const notes=await dbGetAll('notes');
+  const el=document.getElementById('backup-summary');
+  const streak=getStreak();
+  if(el) el.innerHTML=`
+    📝 Sessions: <strong>${sessions.length}</strong><br>
+    ✅ Todos: <strong>${todos.length}</strong><br>
+    🔥 Habits: <strong>${habits.length}</strong><br>
+    📄 Notes: <strong>${notes.length}</strong><br>
+    🔥 Current Streak: <strong>${streak.current} days</strong><br>
+    🏆 Best Streak: <strong>${streak.best} days</strong>
+  `;
+}
+async function exportData() {
+  const sessions=await dbGetAll('sessions');
+  const todos=await dbGetAll('todos');
+  const habits=await dbGetAll('habits');
+  const habitLogs=await dbGetAll('habit_logs');
+  const notes=await dbGetAll('notes');
+  const data={
+    exportDate:new Date().toISOString(),
+    version:'3.0',
+    streak:getStreak(),
+    settings:lsGet('settings',{}),
+    custom_subjects:lsGet('custom_subjects',[]),
+    sessions, todos, habits, habitLogs, notes
+  };
+  downloadJSON(data, `cse2027-backup-${today()}.json`);
+  toast('Data exported!','success');
+}
+async function importData(ev) {
+  const file=ev.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try {
+      const data=JSON.parse(e.target.result);
+      if(data.sessions) for(const s of data.sessions) { const {id,...rest}=s; await dbAdd('sessions',rest).catch(()=>{}); }
+      if(data.todos) for(const t of data.todos) { const {id,...rest}=t; await dbAdd('todos',rest).catch(()=>{}); }
+      if(data.habits) for(const h of data.habits) { const {id,...rest}=h; await dbAdd('habits',rest).catch(()=>{}); }
+      if(data.notes) for(const n of data.notes) { const {id,...rest}=n; await dbAdd('notes',rest).catch(()=>{}); }
+      if(data.streak) lsSet('streak_data',data.streak);
+      if(data.settings) lsSet('settings',data.settings);
+      if(data.custom_subjects) lsSet('custom_subjects',data.custom_subjects);
+      toast('Data imported successfully!','success');
+      renderBackup();
+    } catch { toast('Invalid backup file','error'); }
+  };
+  reader.readAsText(file);
+}
+async function exportCSV() {
+  const sessions=await dbGetAll('sessions');
+  const headers='Date,Subject,Duration (mins),Notes,Timestamp';
+  const rows=sessions.map(s=>`${s.date},"${s.subjectName||s.subjectId}",${Math.round(s.duration/60)},"${(s.notes||'').replace(/"/g,'""')}",${s.timestamp}`);
+  const csv=[headers,...rows].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`sessions-${today()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported!','success');
+}
+async function clearAllData() {
+  if(!confirm('⚠️ This will delete ALL your data permanently. Are you sure?')) return;
+  if(!confirm('Really? This cannot be undone.')) return;
+  await Promise.all(['sessions','todos','habits','habit_logs','notes'].map(s=>dbClear(s)));
+  localStorage.removeItem('streak_data');
+  toast('All data cleared','info');
+  renderBackup();
+}
+function downloadJSON(data, filename) {
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── SETTINGS ── */
+function renderSettings() {
+  const settings=lsGet('settings',{});
+  if(settings.reminderTime) document.getElementById('set-reminder').value=settings.reminderTime;
+  if(settings.dailyTarget) document.getElementById('set-daily-target').value=settings.dailyTarget;
+  if(settings.weeklyTarget) document.getElementById('set-weekly-target').value=settings.weeklyTarget;
+  const perm=Notification.permission;
+  document.getElementById('notif-perm-status').textContent=
+    perm==='granted'?'✅ Notifications enabled':perm==='denied'?'❌ Notifications blocked (check browser settings)':'⚠️ Click Enable to allow notifications';
+}
+function saveSettings() {
+  const settings={
+    reminderTime:document.getElementById('set-reminder').value,
+    dailyTarget:parseFloat(document.getElementById('set-daily-target').value)||8,
+    weeklyTarget:parseFloat(document.getElementById('set-weekly-target').value)||50
+  };
+  lsSet('settings',settings);
+  if(settings.reminderTime) scheduleDaily(settings.reminderTime);
+  toast('Settings saved!','success');
+}
+async function requestNotificationPermission() {
+  const perm=await Notification.requestPermission();
+  renderSettings();
+  if(perm==='granted') { toast('Notifications enabled! 🔔','success'); document.getElementById('notif-dot').classList.add('on'); }
+  else toast('Notifications blocked. Enable in browser settings.','warning');
+}
+
+/* ── NOTIFICATIONS ── */
+function showNotif(title, body, tag) {
+  if(Notification.permission !== 'granted') return;
+  try { new Notification(title, {body, icon:'icons/icon-192.png', tag: tag||'notif', silent:false}); } catch(e) {}
+}
+function scheduleNotification(title, body, delayMs, tag) {
+  if(Notification.permission !== 'granted') return;
+  if(delayMs <= 0) { showNotif(title, body, tag); return; }
+  setTimeout(() => showNotif(title, body, tag), Math.min(delayMs, 2000000000));
+}
+function testNotification() {
+  if(Notification.permission==='granted') {
+    scheduleNotification('📚 CSE 2027','Notifications are working! Keep studying! 🚀',0,'test');
+    toast('Test notification sent!','success');
+  } else {
+    requestNotificationPermission();
+  }
+}
+
+/* ── CHECK REMINDERS ── */
+function checkReminderOnLoad() {
+  const settings=lsGet('settings',{});
+  if(settings.reminderTime && Notification.permission==='granted') scheduleDaily(settings.reminderTime);
+  // Check todo reminders
+  dbGetAll('todos').then(todos=>{
+    const t=today();
+    todos.forEach(todo=>{
+      if(todo.date===t && todo.reminder && !todo.completed && !todo.notified) {
+        const due=new Date(t+'T'+todo.reminder+':00');
+        const diff=due.getTime()-Date.now();
+        if(diff>0) scheduleNotification(`📋 ${todo.text}`,`Task reminder!`,diff,'todo-'+todo.id);
+      }
+    });
+  });
+}
+
+/* ── OFFLINE DETECTION ── */
+window.addEventListener('online', ()=>{ document.getElementById('offline-banner').style.display='none'; });
+window.addEventListener('offline', ()=>{ document.getElementById('offline-banner').style.display='block'; });
+if(!navigator.onLine) document.getElementById('offline-banner').style.display='block';
+
+/* ── URL HASH NAV ── */
+function checkHash() {
+  const hash=location.hash.replace('#','');
+  if(hash) { const pages=['dashboard','sessions','subjects','today','habits','analytics','notes','backup','settings']; if(pages.includes(hash)) nav(hash); }
+}
+
+/* ── SERVICE WORKER ── */
+async function registerSW() {
+  if(!('serviceWorker' in navigator)) return;
+  const loc = location.protocol + location.hostname;
+  // SW only works on real HTTPS origins with an actual sw.js file
+  // Skip silently on previews, blob origins, file://, localhost previews
+  const unsupported = ['claudeusercontent','blob','file:','localhost'].some(s=>loc.includes(s));
+  if(unsupported) return; // app works fine without SW
+  try {
+    await navigator.serviceWorker.register('./sw.js');
+  } catch(e) { /* silent — SW is enhancement only */ }
+}
+
+/* ── INIT ── */
+async function init() {
+  // Step 1: Show app content IMMEDIATELY — splash covers via z-index, so content
+  // is already rendered behind it. No opacity gating needed.
+  try {
+    await initDB();
+  } catch(e) {
+    console.warn('IndexedDB init failed, using fallback:', e);
+    // App still works with empty data
+  }
+
+  // Step 2: Populate all dropdowns
+  try { populateSubjectDropdowns(); } catch(e) {}
+
+  // Step 3: Check hash / restore last page
+  try { checkHash(); } catch(e) {}
+
+  // Step 4: Update streak badge
+  try {
+    const streak = getStreak();
+    const sb = document.getElementById('streak-badge');
+    if(sb) sb.textContent = '🔥 ' + streak.current;
+  } catch(e) {}
+
+  // Step 5: Render dashboard immediately (it's the visible panel)
+  try { await renderDashboard(); } catch(e) { console.warn('Dashboard render:', e); }
+
+  // Step 6: Hide splash after short delay
+  const splashEl = document.getElementById('splash');
+  if(splashEl) {
+    // Min 1.8s for UX, but don't wait for DB
+    const elapsed = Date.now() - window._appStart;
+    const remaining = Math.max(0, 1800 - elapsed);
+    setTimeout(() => {
+      splashEl.classList.add('hide');
+      setTimeout(() => { splashEl.style.display = 'none'; }, 500);
+    }, remaining);
+  }
+
+  // Step 7: Non-critical stuff after app is visible
+  setTimeout(async () => {
+    try { checkReminderOnLoad(); } catch(e) {}
+    try {
+      if(Notification.permission === 'granted') {
+        document.getElementById('notif-dot').classList.add('on');
+      } else if(Notification.permission === 'default') {
+        requestNotificationPermission();
+      }
+    } catch(e) {}
+  }, 2500);
+}
+
+/* ── START: run as early as possible ── */
+window._appStart = Date.now();
+registerSW();
+
+// Run init immediately without waiting for DOMContentLoaded
+// because on WebView (PWABuilder/APK) DOMContentLoaded can misbehave
+if(document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  // DOM already ready (e.g. script at bottom of body)
+  init();
+}
+
+/* ── KEYBOARD SHORTCUTS ── */
+document.addEventListener('keydown', e=>{
+  if(e.altKey) {
+    const map={'1':'dashboard','2':'sessions','3':'subjects','4':'today','5':'habits','6':'analytics','7':'notes','8':'backup'};
+    if(map[e.key]) { e.preventDefault(); nav(map[e.key]); }
+  }
+});
+
+/* ── PREVENT PULL TO REFRESH on mobile ── */
+let touchStartY=0;
+document.addEventListener('touchstart',e=>{ touchStartY=e.touches[0].clientY; },{passive:true});
+document.addEventListener('touchmove',e=>{ if(document.scrollingElement&&document.scrollingElement.scrollTop===0&&e.touches[0].clientY>touchStartY+10) e.preventDefault(); },{passive:false});
+</script>
+</body>
+</html>
